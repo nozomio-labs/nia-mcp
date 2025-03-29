@@ -6,7 +6,11 @@ import { z } from "zod";
 import colors from "colors";
 const { green, red, yellow } = colors;
 import express from "express";
+import { Request, Response, NextFunction } from "express";
+import cors from "cors";
 import { fileURLToPath } from "url";
+// Custom tool timeout (can be adjusted as needed, default is already 5 minutes in server config)
+const TOOL_TIMEOUT_MS = parseInt(process.env.TOOL_TIMEOUT_MS || "300000", 10); // 5 minutes default
 
 // Nia API constants
 const NIA_API_BASE = "https://api.trynia.ai";
@@ -321,15 +325,16 @@ async function main() {
     }
     console.error(green(`Debug mode: ${debugMode ? "enabled" : "disabled"}`));
     console.error(green(`API endpoint: ${NIA_API_BASE}\n`));
+    console.error(green(`Tool timeout: ${TOOL_TIMEOUT_MS}ms\n`));
 
     // Create server instance with improved settings
     const server = new McpServer({
       name: "nia-mcp",
       version: "1.0.0",
-      requestTimeout: 180000  // Increased to 3 minutes to match our fetch timeout
+      requestTimeout: TOOL_TIMEOUT_MS  // Server-level request timeout (already 5 minutes)
     });
 
-    // Define lookup tool
+    // Define lookup tool with a higher timeout
     server.tool(
       `lookup_codebase_context`,
       "Look up context from a codebase indexed in Nia, retrieving relevant code snippets based on user queries.",
@@ -353,7 +358,16 @@ async function main() {
           }, 5000);
 
           try {
-            const result = await fetchContextFromNia(user_query, globalApiKey);
+            // Use a custom timeout Promise.race for this specific tool
+            const fetchPromise = fetchContextFromNia(user_query, globalApiKey);
+            const timeoutPromise = new Promise<null>((_, reject) => 
+              setTimeout(() => reject(new Error(`Operation timed out after ${TOOL_TIMEOUT_MS/1000} seconds`)), TOOL_TIMEOUT_MS)
+            );
+            
+            // Use Promise.race and handle potential errors
+            const result = await Promise.race([fetchPromise, timeoutPromise]);
+
+            // Clear the progress indicator
             clearInterval(progressInterval);
 
             if (!result) {
@@ -409,10 +423,29 @@ async function main() {
               console.error(`[${new Date().toISOString()}] Request completed in ${responseTime}ms, content length: ${contentLength} chars, sources: ${sourceCount}`);
             }
 
-            // Improved response formatting with better structure
-            let responseText = `Context for "${user_query}":\n\n${result.content}`;
+            // Format the response with optimized delivery for quick client-side display
+            let responseText = `Context for "${user_query}":\n\n`;
             
-            // Only add sources if they exist
+            // For very long content, trim and add a note
+            const maxResponseLength = 10000; // Characters
+            let trimmedContent = result.content;
+            if (result.content.length > maxResponseLength) {
+              // Find a good break point at a paragraph
+              const breakPoint = result.content.lastIndexOf("\n\n", maxResponseLength);
+              if (breakPoint > maxResponseLength * 0.75) {
+                trimmedContent = result.content.substring(0, breakPoint) + 
+                  "\n\n[Content trimmed for display. The original response was " + 
+                  result.content.length + " characters long.]";
+              } else {
+                trimmedContent = result.content.substring(0, maxResponseLength) + 
+                  "...\n\n[Content trimmed for display. The original response was " + 
+                  result.content.length + " characters long.]";
+              }
+            }
+            
+            responseText += trimmedContent;
+            
+            // Add sources if they exist
             if (result.sources && result.sources.length > 0) {
               responseText += "\n\nSources:\n" + result.sources.map(src => `- ${src}`).join('\n');
             }
@@ -449,14 +482,23 @@ async function main() {
       let sseTransport: SSEServerTransport | null = null;
 
       // Add CORS support for dev environments
-      app.use((req, res, next) => {
-        res.header("Access-Control-Allow-Origin", "*");
-        res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-        next();
-      });
+      app.use(cors({
+        origin: "*",
+        methods: ["GET", "POST"],
+        allowedHeaders: ["Content-Type", "Authorization"]
+      }));
+      
+      // Utility functions to work around TypeScript errors
+      const safeGet = (path: string, handler: (req: Request, res: Response) => void) => {
+        app.get(path, (req, res) => handler(req as Request, res as Response));
+      };
+      
+      const safePost = (path: string, handler: (req: Request, res: Response) => void) => {
+        app.post(path, (req, res) => handler(req as Request, res as Response));
+      };
 
       // Add a simple status endpoint
-      app.get("/", (req, res) => {
+      safeGet("/", (req: Request, res: Response) => {
         res.send(`
           <html>
             <head><title>Nia MCP Server</title></head>
@@ -471,37 +513,51 @@ async function main() {
       });
 
       // Improved SSE endpoint with better error handling
-      app.get("/sse", (req, res) => {
-        // Close any existing connection
-        if (sseTransport) {
-          console.error(yellow("⚠️ Closing existing SSE connection"));
-          try {
-            // Attempt to gracefully close the previous connection
-            sseTransport = null;
-          } catch (e) {
-            console.error("Error closing previous SSE connection:", e);
+      safeGet("/sse", (req: Request, res: Response) => {
+        try {
+          // Close any existing connection
+          if (sseTransport) {
+            console.error(yellow("⚠️ Closing existing SSE connection"));
+            try {
+              // Attempt to gracefully close the previous connection
+              sseTransport = null;
+            } catch (e) {
+              console.error("Error closing previous SSE connection:", e);
+            }
           }
+          
+          // Get the transport type from query parameters (for compatibility with MCP Inspector)
+          const transportType = req.query.transportType as string | undefined;
+          if (transportType && transportType !== 'sse') {
+            console.error(red(`❌ Error: Invalid transport type requested: ${transportType}`));
+            console.error(yellow("   The MCP Inspector may be trying to use an incompatible transport."));
+            console.error(yellow("   Try running the Inspector with: npx @modelcontextprotocol/inspector --transport=sse node dist/index.js"));
+            return res.status(400).send(`Invalid transport type: ${transportType}`);
+          }
+          
+          // Set up headers for SSE
+          res.setHeader("Content-Type", "text/event-stream");
+          res.setHeader("Cache-Control", "no-cache");
+          res.setHeader("Connection", "keep-alive");
+          
+          // Create new transport
+          sseTransport = new SSEServerTransport("/messages", res);
+          server.connect(sseTransport);
+          console.error(green(`✅ SSE connection established`));
+          
+          // Handle client disconnect
+          req.on("close", () => {
+            console.error(yellow("⚠️ SSE connection closed by client"));
+            sseTransport = null;
+          });
+        } catch (error) {
+          console.error(red(`❌ Error in SSE connection: ${error instanceof Error ? error.message : String(error)}`));
+          res.status(500).send(`SSE connection error: ${error instanceof Error ? error.message : String(error)}`);
         }
-        
-        // Set up headers for SSE
-        res.setHeader("Content-Type", "text/event-stream");
-        res.setHeader("Cache-Control", "no-cache");
-        res.setHeader("Connection", "keep-alive");
-        
-        // Create new transport
-        sseTransport = new SSEServerTransport("/messages", res);
-        server.connect(sseTransport);
-        console.error(green(`✅ SSE connection established`));
-        
-        // Handle client disconnect
-        req.on("close", () => {
-          console.error(yellow("⚠️ SSE connection closed by client"));
-          sseTransport = null;
-        });
       });
 
       // Improved message handling with better error reporting
-      app.post("/messages", (req, res) => {
+      safePost("/messages", (req: Request, res: Response) => {
         if (sseTransport) {
           try {
             sseTransport.handlePostMessage(req, res);
@@ -522,7 +578,7 @@ async function main() {
       });
 
       // Add a health check endpoint
-      app.get("/health", (req, res) => {
+      safeGet("/health", (req: Request, res: Response) => {
         res.status(200).json({
           status: "ok",
           version: "1.0.0",
