@@ -5,6 +5,10 @@
   "main": "dist/index.js",
   "module": "index.js",
   "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/express": "^5.0.0",
