@@ -1,10 +1,14 @@
 {
-  "name": "nia-mcp",
+  "name": "nia-mcp-server",
   "version": "1.0.0",
   "description": "MCP server for Nia AI codebase understanding",
   "main": "dist/index.js",
   "module": "index.js",
   "type": "module",
+  "bin": {
+    "nia-mcp": "dist/index.js"
+  },
+  "files": ["dist"],
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js"

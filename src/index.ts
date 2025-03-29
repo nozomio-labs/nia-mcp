@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 // ES Module imports with .js extensions (required for Node.js ES modules)
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
