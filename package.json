@@ -1,11 +1,11 @@
 {
   "name": "nia-codebase-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MCP server for Nia AI codebase understanding",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "nia-mcp": "dist/index.js"
+    "nia-codebase-mcp": "dist/index.js"
   },
   "files": [
     "dist/index.js",

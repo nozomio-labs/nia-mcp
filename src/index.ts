@@ -24,8 +24,8 @@ let debugMode = false;
 
 // Create server instance with improved settings - MOVED OUTSIDE MAIN FUNCTION
 const server = new McpServer({
-  name: "nia-mcp",
-  version: "1.0.0",
+  name: "nia-codebase-mcp",
+  version: "1.0.1",
   requestTimeout: TOOL_TIMEOUT_MS  // Server-level request timeout (already 5 minutes)
 });
 
@@ -619,6 +619,6 @@ async function main() {
 }
 
 // Only run the main function if this file is being executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url.includes(process.argv[1]) || process.argv[1]?.endsWith('nia-codebase-mcp')) {
   main();
 }
