@@ -549,17 +549,16 @@ async function main() {
             return res.status(400).send(`Invalid transport type: ${transportType}`);
           }
           
-          // Set up headers for SSE
+
           res.setHeader("Content-Type", "text/event-stream");
           res.setHeader("Cache-Control", "no-cache");
           res.setHeader("Connection", "keep-alive");
           
-          // Create new transport
+
           sseTransport = new SSEServerTransport("/messages", res);
           server.connect(sseTransport);
           console.error(green(`✅ SSE connection established`));
-          
-          // Handle client disconnect
+
           req.on("close", () => {
             console.error(yellow("⚠️ SSE connection closed by client"));
             sseTransport = null;
@@ -570,7 +569,7 @@ async function main() {
         }
       });
 
-      // Improved message handling with better error reporting
+
       safePost("/messages", (req: Request, res: Response) => {
         if (sseTransport) {
           try {
@@ -591,7 +590,7 @@ async function main() {
         }
       });
 
-      // Add a health check endpoint
+
       safeGet("/health", (req: Request, res: Response) => {
         res.status(200).json({
           status: "ok",
@@ -618,7 +617,7 @@ async function main() {
   }
 }
 
-// Only run the main function if this file is being executed directly
+
 if (import.meta.url.includes(process.argv[1]) || process.argv[1]?.endsWith('nia-codebase-mcp')) {
   main();
 }
