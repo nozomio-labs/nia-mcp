@@ -22,6 +22,13 @@ const USER_AGENT = "nia-mcp/1.0";
 let globalApiKey: string;
 let debugMode = false;
 
+// Create server instance with improved settings - MOVED OUTSIDE MAIN FUNCTION
+const server = new McpServer({
+  name: "nia-mcp",
+  version: "1.0.0",
+  requestTimeout: TOOL_TIMEOUT_MS  // Server-level request timeout (already 5 minutes)
+});
+
 // Helper function for making requests to Nia's OpenAI-compatible API
 async function fetchContextFromNia(query: string, apiKey: string): Promise<{ content: string; sources?: string[]; statusCode?: number } | null> {
   // Note: Nia's API doesn't use /v1/ prefix like OpenAI
@@ -329,13 +336,6 @@ async function main() {
     console.error(green(`API endpoint: ${NIA_API_BASE}\n`));
     console.error(green(`Tool timeout: ${TOOL_TIMEOUT_MS}ms\n`));
 
-    // Create server instance with improved settings
-    const server = new McpServer({
-      name: "nia-mcp",
-      version: "1.0.0",
-      requestTimeout: TOOL_TIMEOUT_MS  // Server-level request timeout (already 5 minutes)
-    });
-
     // Define lookup tool with a higher timeout
     server.tool(
       `lookup_codebase_context`,
@@ -478,6 +478,18 @@ async function main() {
       await server.connect(stdioTransport);
       console.error(green("✅ Nia MCP Server running on stdio"));
       console.error(green("   Ready to receive requests"));
+      
+      // Keep process alive in stdio mode
+      process.on('SIGINT', () => {
+        console.error('Received SIGINT, shutting down...');
+        process.exit(0);
+      });
+      
+      // Prevent exceptions from crashing the process
+      process.on('uncaughtException', (err) => {
+        console.error('Uncaught exception:', err);
+      });
+      
     } else if (transport === "sse") {
       // Use SSE transport with Express
       const app = express();
@@ -606,5 +618,7 @@ async function main() {
   }
 }
 
-// Run the main function directly
-main();
+// Only run the main function if this file is being executed directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+}
