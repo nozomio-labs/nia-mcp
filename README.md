@@ -7,7 +7,7 @@ The Nia Codebase MCP server allows you to integrate with Nia's codebase understa
 You can use this MCP server without installing it using npx:
 
 ```bash
-npx -y nia-codebase-mcp@1.0.0 --api-key=YOUR_NIA_API_KEY --transport=stdio
+npx -y nia-codebase-mcp@1.0.1 --api-key=YOUR_NIA_API_KEY --transport=stdio
 ```
 
 ## Transport Options
@@ -19,7 +19,7 @@ The Nia Codebase MCP server supports two transport methods:
 This is the default transport method and is used when no transport is specified:
 
 ```bash
-npx -y nia-codebase-mcp --api-key=YOUR_NIA_API_KEY --transport=stdio
+npx -y nia-codebase-mcp --api-key=YOUR_NIA_API_KEY
 ```
 
 ### 2. Server-Sent Events (SSE)
@@ -38,7 +38,7 @@ npx -y nia-codebase-mcp --api-key=YOUR_NIA_API_KEY --transport=sse --port=3000
 2. Add a new MCP server
 3. Name: `nia-codebase`
 4. Type: `command`
-5. Command: `npx -y nia-codebase-mcp --api-key=YOUR_NIA_API_KEY`
+5. Command: `npx -y nia-codebase-mcp@1.0.1 --api-key=YOUR_NIA_API_KEY`
 
 ### Claude Desktop
 
@@ -49,16 +49,30 @@ Add to your Claude Desktop configuration at `~/Library/Application Support/Claud
   "mcpServers": {
     "nia-codebase": {
       "command": "npx",
-      "args": ["-y", "nia-codebase-mcp", "--api-key=YOUR_NIA_API_KEY"]
+      "args": ["-y", "nia-codebase-mcp@1.0.1", "--api-key=YOUR_NIA_API_KEY"]
     }
   }
 }
 ```
 
-### Example Prompt
+For Windows users, the configuration is at `%APPDATA%\Claude\claude_desktop_config.json`.
+
+### Example Prompts
 
 ```
-Using the lookup_codebase_context tool, search the codebase to understand how the chunking system works and explain its key components.
+Using the lookup_codebase_context tool, please analyze my project structure and tell me what the main components are.
+```
+
+```
+Using the lookup_codebase_context tool, search the codebase to understand how the authentication system works and explain its key components.
+```
+
+## Debugging
+
+If the server isn't working properly, you can enable debug mode:
+
+```bash
+npx -y nia-codebase-mcp@1.0.1 --api-key=YOUR_NIA_API_KEY --debug=true
 ```
 
 ## Environment Variables
@@ -76,6 +90,12 @@ You can also configure the server using environment variables:
 This MCP server provides the following tool:
 
 - **lookup_codebase_context**: Look up context from a codebase indexed in Nia, retrieving relevant code snippets based on user queries.
+
+## Requirements
+
+- Node.js 18 or higher
+- A valid Nia API key
+- A codebase indexed in Nia
 
 ## License
 
