@@ -15,7 +15,7 @@ import { fileURLToPath } from "url";
 const TOOL_TIMEOUT_MS = parseInt(process.env.TOOL_TIMEOUT_MS || "300000", 10); // 5 minutes default
 
 // Nia API constants
-const NIA_API_BASE = "https://api.trynia.ai";
+const NIA_API_BASE = "https://apigcp.trynia.ai";
 const USER_AGENT = "nia-mcp/1.0";
 
 // Global variables
