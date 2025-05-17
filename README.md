@@ -2,6 +2,10 @@
 
 The Nia Codebase MCP server allows you to integrate with Nia's codebase understanding capabilities through function calling in tools like Cursor, Claude Desktop, and other MCP-compatible clients.
 
+<a href="https://glama.ai/mcp/servers/@nozomio-labs/nia-mcp">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@nozomio-labs/nia-mcp/badge" alt="Nia Codebase MCP server" />
+</a>
+
 ## Installation
 
 You can use this MCP server without installing it using npx:
